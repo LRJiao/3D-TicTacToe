@@ -1,370 +1,405 @@
 import random
+class OneMove:
+    def __init__(self, board, row, column):
+        self.board = board
+        self.row = row
+        self.column = column
 
-class Board:
+
+class TTT3D:
     def __init__(self):
-        # Initializes a board, creates the matrix and sets the dimension.
-        self.matrix = [[None]*3 for i in range(3)]
-        self.dimension = 3
+        self.humanFirst = True
+        self.difficulty = 2
+        self.lookAheadCounter = 0
+        self.totalLooksAhead = 2
+        self.humanScore = 0
+        self.computerScore = 0
+        self.finalWin = [0, 0, 0]
+        self.win = False
+        self.humanPiece = 'X'
+        self.computerPiece = 'O'
+        self.config = [[['-' for _ in range(3)] for _ in range(3)] for _ in range(3)]
 
-    def __str__(self):
-        # Stringifys the board for easy display, allows use of print()
-        out = ""
-        for lst in self.matrix:
-            out += str(lst) + "\n"
-        return out
+    def printBoard(self):
+        for i in range(3):
+            print(f"Layer {i + 1}:")
+            for j in range(3):
+                print(" ".join(self.config[i][j]))
+            print("")
 
-    def as_list(self):
-        # converts the Board to a list for unittests
-        out = []
-        for lst in self.matrix:
-            for x in lst:
-                out += x
-        return out
-
-    def __iter__(self):
-        # creates an iterator for the board
-        lst = self.as_list()
-        for item in lst:
-            yield item
-
-    def __bool__(self):
-        # returns True if the board has a non-None value
-        for lst in self.matrix:
-            for val in lst:
-                if val is not None:
-                    return True
-        return False
-
-    def get_spot(self, down, over):
-        if self.matrix[down][over] is not None:
-            return self.matrix[down][over]
-        return None
-
-    def get_all_openings(self):
-        # returns a list of tuples of all open coordinates
-        openings = []
-        for x in range(self.dimension):
-            for y in range(self.dimension):
-                if not self.matrix[x][y]:
-                    openings.append((x, y))
-        return openings
-
-    def __getitem__(self, location):
-        # returns the item at a single-integer location. The board is numbered 0-8.
-        assert(location <= (self.dimension**2))
-        return self.matrix[location//self.dimension][location%self.dimension]
-
-    def __setitem__(self, location, val):
-        # sets the item at a single-integer location
-        assert(location < (self.dimension**2))
-        if self.get_spot(location//self.dimension, location%self.dimension) != None:
-            raise ValueError('This place is already taken. To override this place, use `set_val()`')
-        self.matrix[location//self.dimension][location%self.dimension] = val
-
-    def set_val(self, down, over, val, override=False):
-        # sets the value at a coordinate pair
-        if not override and self.get_spot(down, over) == None:
-            self.matrix[down][over] = val
+    def selectPiece(self):
+        piece = input("Select your piece (X/O): ").upper()
+        if piece == 'X':
+            self.humanPiece = 'X'
+            self.computerPiece = 'O'
         else:
-            raise ValueError('This place is already taken')
+            self.humanPiece = 'O'
+            self.computerPiece = 'X'
 
-    def clear(self):
-        # empties the board (sets all locations to None).
-        self.matrix = [[None]*self.dimension for i in range(self.dimension)]
+    def selectFirst(self):
+        first = input("Do you want to go first? (yes/no): ").lower()
+        self.humanFirst = first == 'yes'
 
-    def check_win(self):
-        # checks all locations within a single board for winners. if a winner is found, it returns who won. else False
-        # row check
-        for row in self.matrix:
-            if row[0] == row[1] == row[2] and row[0] != None:
-                return row[0]
-
-        # column check
-        for x in range(self.dimension):
-            if self.matrix[0][x] == self.matrix[1][x] == self.matrix[2][x] and self.matrix[0][x] != None:
-                return self.matrix[0][x]
-
-        # diagonal checks
-            if self.matrix[0][0] == self.matrix[1][1] == self.matrix[2][2] and self.matrix[0][0] != None:
-                return self.matrix[0][0]
-            elif self.matrix[0][2] == self.matrix[1][1] == self.matrix[2][0] and self.matrix[0][2] != None:
-                return self.matrix[0][2]
-        # else
-        return False
-
-    @staticmethod
-    def location_to_coordinates(location, dimension=3):
-        # returns a tuple containing the (down, over) coordinates of a location
-        return (location//dimension, location%dimension)
-
-class Cube:
-    class Row:
-        empty = "empty"
-        def __init__(self, key=None):
-            self.coords = []
-            self.vals = []
-            self.key = key
-
-        def as_dict(self):
-            # returns the Row as a dict
-            out = {}
-            for coord, val in zip(self.coords, self.vals):
-                out[coord] = val
-            return out
-
-        def __iter__(self):
-            # iterates through the Row
-            for coord, val in zip(self.coords, self.vals):
-                yield (coord, val)
-
-        def __str__(self):
-            # returns the Row as a string (printed like a dict)
-            return str(self.as_dict())
-
-    allowed = ['x', 'o']
-    def __init__(self):
-        # initializes a 3**3 board
-        self.boards = [Board(), Board(), Board()]
-
-    def __str__(self):
-        # stringifies the cube
-        out = ""
-        for x in range(3):
-            out += "---Board {0}---\n".format(str(x))
-            out += str(self.boards[x]) + "\n"
-        return out
-
-    def get_available_spaces(self):
-        # returns a dict that contains all open spaces - each value is a list of tuples of spaces
-        spaces = {}
-        for x in range(3):
-            spaces[x] = self.boards[x].get_all_openings()
-        return spaces
-
-    def check_wins(self):
-        # checks for a winner on the board
-        # first check the 3 board objects
-        for board in self.boards:
-            result = board.check_win()
-            if result != False:
-                return result
+    def selectDifficulty(self):
+        difficulty = input("Select difficulty (easy/medium/hard): ").lower()
+        if difficulty == 'easy':
+            self.difficulty = 1
+            self.totalLooksAhead = 1
+        elif difficulty == 'medium':
+            self.difficulty = 2
+            self.totalLooksAhead = 2
         else:
-            # 3D vertical checks
-            for x in range(9):
-                if self.boards[0][x] == self.boards[1][x] == self.boards[2][x] and self.boards[0][x] != None:
-                    return self.boards[0][x]
+            self.difficulty = 3
+            self.totalLooksAhead = 6
 
-            # 3D diagonal checks (yay!)
-            # straight diagonals
-            for x in range(3):
-                if self.boards[0][x*3 + 0] == self.boards[1][x*3 + 1] == self.boards[2][x*3 + 2] and self.boards[0][x*3 + 0] != None:
-                    return self.boards[0][x*3 + 0]
-                elif self.boards[0][x*3 + 2] == self.boards[1][x*3 + 1] == self.boards[2][x*3 + 0] and self.boards[0][x*3 + 2] != None:
-                    return self.boards[0][x*3 + 2]
-                elif self.boards[0][x] == self.boards[1][3 + x] == self.boards[2][6 + x] and self.boards[0][x] != None:
-                    return self.boards[0][0][x]
-                elif self.boards[0][2 + x] == self.boards[1][1 + x] == self.boards[2][x] and self.boards[0][2 + x] != None:
-                    return self.boards[0][2][x]
-            # diagonal diagonals
-            if self.boards[0][0] == self.boards[1][4] == self.boards[2][8] and self.boards[0][0] != None:
-                return self.boards[0][0][0]
-            elif self.boards[0][2] == self.boards[1][4] == self.boards[2][6] and self.boards[0][2] != None:
-                return self.boards[0][0][2]
-            elif self.boards[0][6] == self.boards[1][4] == self.boards[2][2] and self.boards[0][6] != None:
-                return self.boards[0][2][0]
-            elif self.boards[0][8] == self.boards[1][4] == self.boards[2][6] and self.boards[0][8] != None:
-                return self.boards[0][2][2]
+    def newGame(self):
+        self.clearBoard()
+        if not self.humanFirst:
+            self.computerMove()
+
+    def humanMove(self):
+        while True:
+            move = input("Enter your move (layer,row,column): ")
+            i, j, k = map(int, move.split(','))
+            if self.config[i][j][k] == '-':
+                self.config[i][j][k] = self.humanPiece
+                break
+            else:
+                print("Invalid move. Try again.")
+
+    def computerMove(self):
+        if self.difficulty == 3:
+            self.computerPlays()
+        else:
+            self.computerPlayRandom()
+
+    def contains(a, k):
+        # Step through array
+        for i in a:
+            # Compare elements
+            if k == i:
+                return True
         return False
 
-    def play_move(self, board, down, over, player):
-        # adds a new item to the board
-        assert(player in ['x', 'o'])
-        self.boards[board].set_val(down, over, player)
 
-    def clear(self):
-        # clears all boards
-        for board in self.boards:
-            board.clear()
+    def computerPlayRandom(self):
+        import random
+        random.seed()
+        row = random.randint(0, 2)
+        column = random.randint(0, 2)
+        board = random.randint(0, 2)
+        self.config[board][row][column] = self.computerPiece
 
-    def analyze_cube(self):
-        # returns all rows of a cube
-        # if a space is occupied, it displays its value
-        # else, it displays its coordinates as a tuple (board, down, over)
-        rows = []
-        key_count = 0
-        for b in range(3):
-            for r in range(3):
-                row = Cube.Row(key_count)
-                key_count += 1
-                for s in range(3):
-                    result = self.boards[b].get_spot(r, s)
-                    row.coords.append((b, r, s))
-                    if result != None:
-                        row.vals.append(result)
-                    elif result == None:
-                        row.vals.append(Cube.Row.empty)
-                rows.append(row)
-        for b in range(3):
-            for c in range(3):
-                row = Cube.Row(key_count)
-                key_count += 1
-                for s in range(3):
-                    result = self.boards[b].get_spot(s, c)
-                    row.coords.append((b, s, c))
-                    if result != None:
-                        row.vals.append(result)
-                    elif result == None:
-                        row.vals.append(Cube.Row.empty)
-                rows.append(row)
-        for x in range(9):
-            row = Cube.Row(key_count)
-            key_count += 1
-            coordinates = Board.location_to_coordinates(x)
-            n1 = self.boards[0][x]
-            n2 = self.boards[1][x]
-            n3 = self.boards[2][x]
-            row.vals.append(n1)
-            row.vals.append(n2)
-            row.vals.append(n3)
-            for y in range(3):
-                row.coords.append((y, coordinates[0], coordinates[1]))
-            rows.append(row)
 
-        # diagonals
-        for x in range(3):
-            # first set
-            row1 = Cube.Row(key_count)
+    def computerPlays(self):
+        bestScore = -1000
+        hValue = 0
+        nextMove = OneMove(0,0,0)
+        bestScoreBoard = -1
+        bestScoreRow = -1
+        bestScoreColumn = -1
 
-            key_count += 1
-            row1.vals.append(self.boards[0][x*3 + 0])
-            row1.vals.append(self.boards[1][x*3 + 1])
-            row1.vals.append(self.boards[2][x*3 + 2])
-            coords1 = Board.location_to_coordinates(x*3 + 0)
-            coords2 = Board.location_to_coordinates(x*3 + 1)
-            coords3 = Board.location_to_coordinates(x*3 + 2)
-            row1.coords.append((0, coords1[0], coords1[1]))
-            row1.coords.append((1, coords2[0], coords2[1]))
-            row1.coords.append((2, coords3[0], coords3[1]))
-            rows.append(row1)
+        # Low number so the first bestScore will be the starting bestScore
+        bestScore = -1000
+        # Walk through the entire game board
+        for i in range(3):
+            for j in range(3):
+                for k in range(3):
+                    if self.config[i][j][k] == '-':
+                        # Creating a new move on every empty position
+                        nextMove.board = i
+                        nextMove.row = j
+                        nextMove.column = k
 
-            # second set
-            row2 = Cube.Row(key_count)
-            key_count += 1
-            row2.vals.append(self.boards[0][x*3 + 2])
-            row2.vals.append(self.boards[1][x*3 + 1])
-            row2.vals.append(self.boards[2][x*3 + 0])
-            coords4 = Board.location_to_coordinates(x*3 + 2)
-            coords5 = Board.location_to_coordinates(x*3 + 1)
-            coords6 = Board.location_to_coordinates(x*3 + 2)
-            row2.coords.append((0, coords4[0], coords4[1]))
-            row2.coords.append((1, coords5[0], coords5[1]))
-            row2.coords.append((2, coords6[0], coords6[1]))
-            rows.append(row2)
+                        if self.checkWin(self.computerPiece, nextMove):
+                            # Leave the piece there if it is a win and end the game
+                            self.config[i][j][k] = self.computerPiece
+                            print("   I win! Press New Game to play again.")
+                            self.win = True
+                            computerScore += 1
+                            break
 
-            # third set
-            row3 = Cube.Row(key_count)
-            key_count += 1
-            row3.vals.append(self.boards[0][x])
-            row3.vals.append(self.boards[1][3 + x])
-            row3.vals.append(self.boards[2][6 + x])
-            coords7 = Board.location_to_coordinates(x)
-            coords8 = Board.location_to_coordinates(3 + x)
-            coords9 = Board.location_to_coordinates(6 + x)
-            row3.coords.append((0, coords7[0], coords7[1]))
-            row3.coords.append((1, coords8[0], coords8[1]))
-            row3.coords.append((2, coords9[0], coords9[1]))
-            rows.append(row3)
+                        else:
+                            # This is where the method generates all the possible counter moves potentially made
+                            # by the human player
+                            if self.difficulty != 1:
+                                hValue = self.lookAhead(self.humanPiece, -1000, 1000)
+                            else:
+                                # If the player is on easy, just calculate the heuristic value for every current possible move, no looking ahead
+                                hValue = self.heuristic()
 
-            # fourth set
-            row4 = Cube.Row(key_count)
-            key_count += 1
-            row4.vals.append(self.boards[0][2 + x])
-            row4.vals.append(self.boards[1][1 + x])
-            row4.vals.append(self.boards[2][x])
-            coords10 = Board.location_to_coordinates(2 + x)
-            coords11 = Board.location_to_coordinates(1 + x)
-            coords12 = Board.location_to_coordinates(x)
-            row4.coords.append((0, coords10[0], coords10[1]))
-            row4.coords.append((1, coords11[0], coords11[1]))
-            row4.coords.append((2, coords12[0], coords12[1]))
-            rows.append(row4)
+                            self.lookAheadCounter = 0
 
-        # fifth set
-        row5 = Cube.Row(key_count)
-        key_count += 1
-        row5.vals.append(self.boards[0][0])
-        row5.vals.append(self.boards[1][4])
-        row5.vals.append(self.boards[2][8])
-        coords13 = Board.location_to_coordinates(0)
-        coords14 = Board.location_to_coordinates(4)
-        coords15 = Board.location_to_coordinates(8)
-        row5.coords.append((0, coords13[0], coords13[1]))
-        row5.coords.append((1, coords14[0], coords14[1]))
-        row5.coords.append((2, coords15[0], coords15[1]))
-        rows.append(row5)
+                            # CPU chooses the best hValue out of every move
+                            if hValue >= bestScore:
+                                bestScore = hValue
+                                bestScoreBoard = i
+                                bestScoreRow = j
+                                bestScoreColumn = k
+                                self.config[i][j][k] = '-'
+                            else:
+                                self.config[i][j][k] = '-'
 
-        # sixth set
-        row6 = Cube.Row(key_count)
-        key_count += 1
-        row6.vals.append(self.boards[0][2])
-        row6.vals.append(self.boards[1][4])
-        row6.vals.append(self.boards[2][6])
-        coords16 = Board.location_to_coordinates(2)
-        coords17 = Board.location_to_coordinates(4)
-        coords18 = Board.location_to_coordinates(6)
-        row6.coords.append((0, coords16[0], coords16[1]))
-        row6.coords.append((1, coords17[0], coords17[1]))
-        row6.coords.append((2, coords18[0], coords18[1]))
-        rows.append(row6)
+        # If there is no possible winning move, make the move in the calculated best position.
+        if not self.win:
+            self.config[bestScoreBoard][bestScoreRow][bestScoreColumn] = self.computerPiece
 
-        # seventh set
-        row7 = Cube.Row(key_count)
-        key_count += 1
-        row7.vals.append(self.boards[0][6])
-        row7.vals.append(self.boards[1][4])
-        row7.vals.append(self.boards[2][2])
-        coords19 = Board.location_to_coordinates(6)
-        coords20 = Board.location_to_coordinates(4)
-        coords21 = Board.location_to_coordinates(2)
-        row7.coords.append((0, coords19[0], coords19[1]))
-        row7.coords.append((1, coords20[0], coords20[1]))
-        row7.coords.append((2, coords21[0], coords21[1]))
-        rows.append(row7)
 
-        # eighth set
-        row8 = Cube.Row(key_count)
-        key_count += 1
-        row8.vals.append(self.boards[0][6])
-        row8.vals.append(self.boards[1][4])
-        row8.vals.append(self.boards[2][2])
-        coords22 = Board.location_to_coordinates(6)
-        coords23 = Board.location_to_coordinates(4)
-        coords24 = Board.location_to_coordinates(2)
-        row8.coords.append((0, coords22[0], coords22[1]))
-        row8.coords.append((1, coords23[0], coords23[1]))
-        row8.coords.append((2, coords24[0], coords24[1]))
-        rows.append(row8)
+    def lookAhead(self, c, a, b):
+        # Alpha and beta values that get passed in
+        alpha = a
+        beta = b
 
-        return rows
+        # If you still want to look ahead
+        if self.lookAheadCounter <= self.totalLooksAhead:
 
-    def random_open_space(self):
-        # returns a random open space in the Cube
-        opens = []
-        for b in range(3):
-            for r in range(3):
-                for s in range(3):
-                    status = self.boards[b].get_spot(r,s)
-                    print(status)
-                    if status == None:
-                        opens.append((b,r,s))
+            self.lookAheadCounter += 1
+            # If you are going to be placing the computer's piece this time
+            if c == self.computerPiece:
+                hValue = 0
+                nextMove = OneMove(0,0,0)
+
+                for i in range(3):
+                    for j in range(3):
+                        for k in range(3):
+                            if self.config[i][j][k] == '-':
+                                nextMove = OneMove(0,0,0)
+                                nextMove.board = i
+                                nextMove.row = j
+                                nextMove.column = k
+
+                                if self.checkWin(self.computerPiece, nextMove):
+                                    self.config[i][j][k] = '-'
+                                    return 1000
+                                else:
+                                    # Recursive look ahead, placing human pieces next
+                                    hValue = self.lookAhead(self.humanPiece, alpha, beta)
+                                    if hValue > alpha:
+                                        alpha = hValue
+                                        self.config[i][j][k] = '-'
+                                    else:
+                                        self.config[i][j][k] = '-'
+
+                                # Break out of the look if the alpha value is larger than the beta value, going down no further
+                                if alpha >= beta:
+                                    break
+
+                return alpha
+
+            # If you are going to be placing the human's piece this time
+            else:
+                hValue = 0
+                nextMove = OneMove(0,0,0)
+
+                for i in range(3):
+                    for j in range(3):
+                        for k in range(3):
+                            if self.config[i][j][k] == '-':
+                                nextMove.board = i
+                                nextMove.row = j
+                                nextMove.column = k
+
+                                if self.checkWin(self.humanPiece, nextMove):
+                                    self.config[i][j][k] = '-'
+                                    return -1000
+                                else:
+                                    # Recursive look ahead, placing computer pieces next
+                                    hValue = self.lookAhead(self.computerPiece, alpha, beta)
+                                    if hValue < beta:
+                                        beta = hValue
+                                        self.config[i][j][k] = '-'
+                                    else:
+                                        self.config[i][j][k] = '-'
+
+                                # Break out of the look if the alpha value is larger than the beta value, going down no further
+                                if alpha >= beta:
+                                    break
+
+                return beta
+
+        # If you are at the last level of nodes you want to check
+        else:
+            return self.heuristic()
+
+
+    def heuristic(self):
+        return (self.checkAvailable(self.computerPiece) - self.checkAvailable(self.humanPiece))
+
+
+    def checkWin(self, c, pos):
+        if pos is not None:
+            self.config[pos.board][pos.row][pos.column] = c
+
+        # Win table
+        wins = [
+            # Rows on single board
+            [0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11], [12, 13, 14], [15, 16, 17], [18, 19, 20],
+            [21, 22, 23], [24, 25, 26],
+
+            # Columns on single board
+            [0, 3, 6], [1, 4, 7], [2, 5, 8], [9, 12, 15], [10, 13, 16], [11, 14, 17], [18, 21, 24],
+            [19, 22, 25], [20, 23, 26],
+
+            # Diagonals on single board
+            [0, 4, 8], [2, 4, 6], [9, 13, 17], [11, 13, 15],
+            [18, 22, 26], [20, 22, 24],
+
+            # Straight down through boards
+            [0, 9, 18], [1, 10, 19], [2, 11, 20], [3, 12, 21], [4, 13, 22], [5, 14, 23], [6, 15, 24],
+            [7, 16, 25], [8, 17, 26],
+
+            # Diagonals through boards
+            [0, 12, 24], [1, 13, 25], [2, 14, 26], [6, 12, 18], [7, 13, 19], [8, 14, 20], [0, 10, 20],
+            [3, 13, 23], [6, 16, 26], [2, 10, 18], [5, 13, 21], [8, 16, 24], [0, 13, 26], [2, 13, 24],
+            [6, 13, 20], [8, 13, 18],
+        ]
+
+        # Array that indicates all the spaces on the game board
+        gameBoard = [0] * 27
+
+        # Counter from 0 to 49, one for each win combo
+        counter = 0
+
+        # If the space on the board is the same as the input char, set the corresponding location
+        # in gameBoard to 1.
+        for i in range(3):
+            for j in range(3):
+                for k in range(3):
+                    if self.config[i][j][k] == c:
+                        gameBoard[counter] = 1
                     else:
-                        continue
-        return random.choice(opens)
+                        gameBoard[counter] = 0
+                    counter += 1
 
-class Player:
-    # a class to manage players in games
-    def __init__(self, name, piece, computer=False):
-        assert(piece in Cube.allowed)
-        self.name = name
-        self.piece = piece
-        self.computer = computer
+        # For each possible win combination
+        for i in range(49):
+            # Resetting counter to see if all 3 locations have been used
+            counter = 0
+            for j in range(3):
+                # For each individual winning space in the current combination
+                if gameBoard[wins[i][j]] == 1:
+                    counter += 1
+
+                    self.finalWin[j] = wins[i][j]
+                    # If all 3 moves of the current winning combination are occupied by char c
+                    if counter == 3:
+                        return True
+
+        return False
+
+
+    def checkAvailable(self, c):
+        winCounter = 0
+
+        # Win table
+        wins = [
+            # Rows on single board
+            [0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11], [12, 13, 14], [15, 16, 17], [18, 19, 20],
+            [21, 22, 23], [24, 25, 26],
+
+            # Columns on single board
+            [0, 3, 6], [1, 4, 7], [2, 5, 8], [9, 12, 15], [10, 13, 16], [11, 14, 17], [18, 21, 24],
+            [19, 22, 25], [20, 23, 26],
+
+            # Diagonals on single board
+            [0, 4, 8], [2, 4, 6], [9, 13, 17], [11, 13, 15],
+            [18, 22, 26], [20, 22, 24],
+
+            # Straight down through boards
+            [0, 9, 18], [1, 10, 19], [2, 11, 20], [3, 12, 21], [4, 13, 22], [5, 14, 23], [6, 15, 24],
+            [7, 16, 25], [8, 17, 26],
+
+            # Diagonals through boards
+            [0, 12, 24], [1, 13, 25], [2, 14, 26], [6, 12, 18], [7, 13, 19], [8, 14, 20], [0, 10, 20],
+            [3, 13, 23], [6, 16, 26], [2, 10, 18], [5, 13, 21], [8, 16, 24], [0, 13, 26], [2, 13, 24],
+            [6, 13, 20], [8, 13, 18],
+        ]
+
+        # Array that indicates all the spaces on the game board
+        gameBoard = [0] * 27
+
+        # Counter from 0 to 49, one for each win combo
+        counter = 0
+
+        # If the space on the board is the same as the input char, set the corresponding location
+        # in gameBoard to 1.
+        for i in range(3):
+            for j in range(3):
+                for k in range(3):
+                    if self.config[i][j][k] == c or self.config[i][j][k] == '-':
+                        gameBoard[counter] = 1
+                    else:
+                        gameBoard[counter] = 0
+
+                    counter += 1
+
+        # For each possible win combination
+        for i in range(49):
+            # Resetting counter to see if all 3 locations have been used
+            counter = 0
+            for j in range(3):
+                # For each individual winning space in the current combination
+                if gameBoard[wins[i][j]] == 1:
+                    counter += 1
+
+                    self.finalWin[j] = wins[i][j]
+                    # If all 3 moves of the current winning combination are occupied by char c
+                    if counter == 3:
+                        winCounter += 1
+
+        return winCounter
+
+    def isDraw(self):
+        return all(self.config[i][j][k] != '-' for i in range(3) for j in range(3) for k in range(3))
+
+    def clearBoard(self):
+        self.config = [[['-' for _ in range(3)] for _ in range(3)] for _ in range(3)]
+        self.win = False
+
+    def playGame(self):
+        self.selectPiece()
+        self.selectFirst()
+        self.selectDifficulty()
+        while True:
+            self.newGame()
+            self.printBoard()
+            while not self.win and not self.isDraw():
+                if self.humanFirst:
+                    self.humanMove()
+                    self.printBoard()
+                    if self.checkWin(self.humanPiece, None):
+                        print("You win! Press New Game to play again.")
+                        self.humanScore += 1
+                        self.win = True
+                    elif self.isDraw():
+                        print("It's a draw! Press New Game to play again.")
+                    else:
+                        self.computerMove()
+                        self.printBoard()
+                else:
+                    self.computerMove()
+                    self.printBoard()
+                    if self.checkWin(self.computerPiece, None):
+                        print("I beat you! Press New Game to play again.")
+                        self.computerScore += 1
+                        self.win = True
+                    elif self.isDraw():
+                        print("It's a draw! Press New Game to play again.")
+                    else:
+                        self.humanMove()
+                        self.printBoard()
+                        if self.checkWin(self.humanPiece, None):
+                            print("You win! Press New Game to play again.")
+                            self.humanScore += 1
+                            self.win = True
+                        elif self.isDraw():
+                            print("It's a draw! Press New Game to play again.")
+
+            play_again = input("Do you want to play again? (yes/no): ").lower()
+            if play_again != 'yes':
+                break
+            self.clearBoard()
+
+if __name__ == "__main__":
+    game = TTT3D()
+    game.playGame()
