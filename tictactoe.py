@@ -54,8 +54,6 @@ class TTT3D:
 
     def newGame(self):
         self.clearBoard()
-        if not self.humanFirst:
-            self.computerMove()
 
     def humanMove(self):
         while True:
@@ -116,7 +114,7 @@ class TTT3D:
                             self.config[i][j][k] = self.computerPiece
                             print("   I win! Press New Game to play again.")
                             self.win = True
-                            computerScore += 1
+                            self.computerScore += 1
                             break
 
                         else:
